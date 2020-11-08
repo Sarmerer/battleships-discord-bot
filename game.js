@@ -1,12 +1,16 @@
-class Game {
+module.exports = class Game {
   /**
    * @param {Object} message
+   * @param {Number} opponent
    */
   constructor(message) {
-    this.playerOne = playerOne;
-    this.playerTwo = playerTwo;
-    this.p1Map = p1Map;
-    this.p2Map = p2Map;
+    message.reply("Your opponent is " + opponent);
+    this.playerOne = message.author.id;
+    this.playerTwo = opponent;
+    // this.p1Map = p1Map;
+    // this.p2Map = p2Map;
   }
-  start() {}
-}
+  start() {
+    console.log(this.playerOne, this.playerTwo);
+  }
+};
