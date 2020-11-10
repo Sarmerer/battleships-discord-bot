@@ -1,7 +1,6 @@
 const { getUserFromMention } = require("./utils");
 const { MessageEmbed } = require("discord.js");
 const { prefix, bot_id: botID } = require("./config.json");
-const { groupEnd } = require("console");
 
 module.exports = class Game {
   /**
@@ -23,46 +22,75 @@ module.exports = class Game {
     this.playerTwoName = `${opponent.user.username}-${opponent.user.discriminator}`;
     this.message = message;
 
-    this.p1chan,
-      this.p2chan,
-      this.p1map,
-      this.p2map,
-      this.p1mapFromP2view,
-      this.p2mapFromP1View;
+    console.log(
+      `New game has been started! Players: ${this.playerOneName} and ${this.playerTwoName}`
+    );
   }
-  async start() {
-    this.p1chan = this.message.guild.channels.cache.get("775774257066147840"); //await this.createChannelFor(
-    //   this.playerOne,
-    //   this.playerOneName,
-    //   this.playerTwoName
-    // );
-    this.p2chan = this.message.guild.channels.cache.get("775774282525442088"); //await this.createChannelFor(
-    //   this.playerTwo,
-    //   this.playerTwoName,
-    //   this.playerOneName
-    // );
-    this.p1map = this.generateMap();
-    this.p2map = this.generateMap();
-    this.p1mapFromP2view = this.p2mapFromP1View = this.generateMap({
-      empty: true,
-    });
+  start() {
+    let p1map = this.generateMap();
+    let p2map = this.generateMap();
+    let p1mapFromP2view = this.generateEmptyMap();
+    let p2mapFromP1View = p1mapFromP2view;
 
-    this.p1chan
+    let p1collector;
+    let p2collector;
+
+    this.createChannelFor(
+      this.playerOne,
+      this.playerOneName,
+      this.playerTwoName
+    )
+      .then((chan) => {
+        this.sendMapEmbed(chan, p1map, p2mapFromP1View);
+
+        p1collector = chan.createMessageCollector(
+          (m) => m.author.id == this.playerOne
+        );
+        p1collector.on("collect", (m) => {
+          console.log(this.playerOneName + " says: " + m.content);
+          if (m.content == "sp") {
+            p1collector.stop();
+            p2collector.stop();
+          }
+        });
+        p1collector.on("end", (collected) => {
+          chan.delete();
+        });
+      })
+      .catch((error) => {
+        return { error: error };
+      });
+    this.createChannelFor(
+      this.playerTwo,
+      this.playerTwoName,
+      this.playerOneName
+    )
+      .then((chan) => {
+        this.sendMapEmbed(chan, p2map, p1mapFromP2view);
+
+        p2collector = chan.createMessageCollector(
+          (m) => m.author.id == this.playerTwo
+        );
+        p2collector.on("collect", (m) => {
+          console.log(this.playerTwoName + " says: " + m.content);
+        });
+        p2collector.on("end", (_collected) => {
+          chan.delete();
+        });
+      })
+      .catch((error) => {
+        return { error: error };
+      });
+  }
+
+  async sendMapEmbed(chan, playerMap, opponentMap) {
+    return chan
       .send(
         new MessageEmbed()
           .setColor("#0099ff")
           .setTitle("You")
-          .setDescription(this.mapToString(this.p1map))
-          .addField("Opponent", this.mapToString(this.p2mapFromP1View))
-      )
-      .catch(console.log);
-    this.p2chan
-      .send(
-        new MessageEmbed()
-          .setColor("#0099ff")
-          .setTitle("You")
-          .setDescription(this.mapToString(this.p2map))
-          .addField("Opponent", this.mapToString(this.p1mapFromP2View))
+          .setDescription(this.mapToString(playerMap))
+          .addField("Opponent", this.mapToString(opponentMap))
       )
       .catch(console.log);
   }
@@ -93,48 +121,34 @@ module.exports = class Game {
 
   mapToString(map) {
     const nums = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
-    let base = new Array(11);
+    let base = [];
     for (let i = 0; i < 11; i++) {
       let tmp = [];
       for (let j = 0; j < 11; j++) {
-        tmp.push(
-          i == 0 && j > 0
-            ? j - 1
-            : j == 0 && i > 0
-            ? i - 1
-            : i > 0 && j > 0
-            ? map[i - 1][j - 1]
-            : 0
-        );
+        if (i == 0 && j > 0) tmp.push(j - 1);
+        if (j == 0 && i > 0) tmp.push(i - 1);
       }
-      base[i] = tmp;
+      if (i > 0)
+        map ? tmp.push(...map[i - 1]) : tmp.push(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+      base.push(tmp);
     }
-
-    console.log(base);
-
-    let res;
+    let res = "";
     for (let i = 0; i < 11; i++) {
       for (let j = 0; j < 11; j++) {
         let cell = base[i][j];
         if (j == 0 && i > 0) res += nums[cell];
-        else if (i == 0 && j >= 1)
+        else if (i == 0 && j > 0)
           res += ":regional_indicator_" + String.fromCharCode(96 + j) + ":";
         else
           res += cell == 1 ? "🔳" : cell == 2 ? "🟥" : cell == 3 ? "❌" : "⬛";
       }
       res += "\n";
     }
+
     return res;
   }
 
-  generateMap(options = { empty: false }) {
-    if (options.empty) {
-      let emptyMap = new Array(10);
-      for (let i = 0; i < 10; i++) {
-        emptyMap[i] = new Array(10);
-      }
-      return emptyMap;
-    }
+  generateMap() {
     let ships = [
       {
         size: 4,
@@ -197,10 +211,7 @@ module.exports = class Game {
         }
       }
     });
-    let map = new Array(10);
-    for (let i = 0; i < 10; i++) {
-      map[i] = new Array(10);
-    }
+    let map = this.generateEmptyMap();
     segments.forEach((s) => {
       map[s.y][s.x] = 1;
     });
@@ -210,5 +221,16 @@ module.exports = class Game {
       let rand = min + Math.random() * (max - min);
       return Math.round(rand);
     }
+  }
+  generateEmptyMap() {
+    let map = [];
+    for (let i = 0; i < 10; i++) {
+      let tmp = [];
+      for (let j; j < 10; j++) {
+        tmp.push(0);
+      }
+      map.push(tmp);
+    }
+    return map;
   }
 };
