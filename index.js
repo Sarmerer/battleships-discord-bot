@@ -4,7 +4,7 @@ const client = new Client();
 
 const Game = require("./game");
 const { prefix, token } = require("./config.json");
-const { parseMessage, getUserFromMention } = require("./utils");
+const { parseMessage } = require("./utils");
 
 client.once("ready", () => {
   console.log(`${client.user.username} ready!`);
@@ -18,14 +18,10 @@ client.on("error", console.error);
 client.on("message", (message) => {
   if (message.author.bot || !message.guild) return;
   let { args, command } = parseMessage(message);
-  if (command == "play") {
-    let opponent = getUserFromMention(message, args[0]);
-    if (!opponent)
-      return message
-        .reply(`Usage: ${prefix}play <User>`)
-        .then((m) => m.delete({ timeout: 5000 }))
-        .catch(console.log);
-    new Game(message, opponent.id).start();
+  if (command == "fight") {
+    let game = new Game(message, args[0]);
+    if (game.error) return;
+    game.start();
   }
 });
 
