@@ -27,13 +27,14 @@ module.exports = class Game {
     );
   }
   start() {
-    let p1map = this.generateMap();
-    let p2map = this.generateMap();
-    let p1mapFromP2view = this.generateEmptyMap();
-    let p2mapFromP1View = p1mapFromP2view;
+    this.p1map = this.generateMap();
+    this.p2map = this.generateMap();
+    this.p1mapFromP2view = this.generateEmptyMap();
+    this.p2mapFromP1view = this.generateEmptyMap();
 
-    let p1collector;
-    let p2collector;
+    this.currentTurn = this.rand(0, 1);
+
+    console.log(`First turn makes player ${this.currentTurn + 1}`);
 
     this.createChannelFor(
       this.playerOne,
@@ -41,46 +42,114 @@ module.exports = class Game {
       this.playerTwoName
     )
       .then((chan) => {
-        this.sendMapEmbed(chan, p1map, p2mapFromP1View);
-
-        p1collector = chan.createMessageCollector(
-          (m) => m.author.id == this.playerOne
-        );
-        p1collector.on("collect", (m) => {
-          console.log(this.playerOneName + " says: " + m.content);
-          if (m.content == "sp") {
-            p1collector.stop();
-            p2collector.stop();
+        this.sendMapEmbed(chan, this.p1map, this.p2mapFromP1view).then(
+          (embed) => {
+            this.p1embed = embed;
+            this.p1collector = chan.createMessageCollector(
+              (m) => m.author.id == this.playerOne
+            );
+            this.p1collector.on("collect", (m) => {
+              if (this.currentTurn == 1) return;
+              this.shoot(m);
+              if (m.content == "sp") {
+                this.p1collector.stop();
+                this.p2collector.stop();
+              }
+              m.delete();
+            });
+            this.p1collector.on("end", (_collected) => {
+              chan.delete();
+            });
           }
-        });
-        p1collector.on("end", (collected) => {
-          chan.delete();
-        });
+        );
       })
       .catch((error) => {
         return { error: error };
       });
+
     this.createChannelFor(
       this.playerTwo,
       this.playerTwoName,
       this.playerOneName
     )
       .then((chan) => {
-        this.sendMapEmbed(chan, p2map, p1mapFromP2view);
-
-        p2collector = chan.createMessageCollector(
-          (m) => m.author.id == this.playerTwo
+        this.sendMapEmbed(chan, this.p2map, this.p1mapFromP2view).then(
+          (embed) => {
+            this.p2embed = embed;
+            this.p2collector = chan.createMessageCollector(
+              (m) => m.author.id == this.playerTwo
+            );
+            this.p2collector.on("collect", (m) => {
+              if (this.currentTurn == 0) return;
+              this.shoot(m);
+              if (m.content == "sp") {
+                this.p1collector.stop();
+                this.p2collector.stop();
+              }
+              m.delete();
+            });
+            this.p2collector.on("end", (_collected) => {
+              chan.delete();
+            });
+          }
         );
-        p2collector.on("collect", (m) => {
-          console.log(this.playerTwoName + " says: " + m.content);
-        });
-        p2collector.on("end", (_collected) => {
-          chan.delete();
-        });
       })
       .catch((error) => {
         return { error: error };
       });
+  }
+
+  shoot(message) {
+    let shooterMap, victimMap;
+    let shooterEmbed, victimEmbed;
+    let victimMapFromShooterView, shooterMapFromVictimView;
+
+    if (this.currentTurn == 0) {
+      shooterMap = this.p1map;
+      victimMap = this.p2map;
+      shooterEmbed = this.p1embed;
+      victimEmbed = this.p2embed;
+      shooterMapFromVictimView = this.p1mapFromP2view;
+      victimMapFromShooterView = this.p2mapFromP1view;
+    } else {
+      shooterMap = this.p2map;
+      victimMap = this.p1map;
+      shooterEmbed = this.p2embed;
+      victimEmbed = this.p1embed;
+      shooterMapFromVictimView = this.p2mapFromP1view;
+      victimMapFromShooterView = this.p1mapFromP2view;
+    }
+
+    let input = message.content.toLowerCase().split("");
+    let target = {
+      x: input[1].charCodeAt() - 48,
+      y: input[0].charCodeAt() - 97,
+    };
+    let shootResult = 1;
+    if (target.x < 10 && target.y < 10 && target.x >= 0 && target.y >= 0) {
+      if (victimMap[target.x][target.y] == 1) {
+        shootResult = 2;
+      } else {
+        shootResult = 3;
+      }
+      victimMap[target.x][target.y] = shootResult;
+      victimMapFromShooterView[target.x][target.y] = shootResult;
+      shooterEmbed.edit(
+        new MessageEmbed()
+          .setColor("#0099ff")
+          .setTitle("You")
+          .setDescription(this.mapToString(shooterMap))
+          .addField("Opponent", this.mapToString(victimMapFromShooterView))
+      );
+      victimEmbed.edit(
+        new MessageEmbed()
+          .setColor("#0099ff")
+          .setTitle("You")
+          .setDescription(this.mapToString(victimMap))
+          .addField("Opponent", this.mapToString(shooterMapFromVictimView))
+      );
+    }
+    this.currentTurn = this.currentTurn == 1 ? 0 : 1;
   }
 
   async sendMapEmbed(chan, playerMap, opponentMap) {
@@ -128,8 +197,7 @@ module.exports = class Game {
         if (i == 0 && j > 0) tmp.push(j - 1);
         if (j == 0 && i > 0) tmp.push(i - 1);
       }
-      if (i > 0)
-        map ? tmp.push(...map[i - 1]) : tmp.push(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+      if (i > 0) tmp.push(...map[i - 1]);
       base.push(tmp);
     }
     let res = "";
@@ -157,6 +225,7 @@ module.exports = class Game {
       {
         size: 3,
         amount: 2,
+        segments: [],
       },
       {
         size: 2,
@@ -167,31 +236,29 @@ module.exports = class Game {
         amount: 4,
       },
     ];
-
-    let segments = [];
+    let map = this.generateEmptyMap();
     let borders = [];
+    let segments = [];
     ships.forEach((ship) => {
       if (!ship.size) return;
-      let shipSize = ship.size;
-      let shipsAmountOfType = ship.amount;
-      for (let i = 0; i < shipsAmountOfType; i++) {
+      for (let i = 0; i < ship.amount; i++) {
         let shipSet = false;
         while (!shipSet) {
           let tempSegments = [];
           let tempBorders = [];
-          let d = rand(0, 1);
-          let x = rand(0, 9);
-          let y = rand(0, 9);
-          if (d == 0 && x + shipSize > 9) x = x - shipSize;
-          if (d == 1 && y + shipSize > 9) y = y - shipSize;
-          for (let j = 0; j < shipSize; j++) {
+          let d = this.rand(0, 1);
+          let x = this.rand(0, 9);
+          let y = this.rand(0, 9);
+          if (d == 0 && x + ship.size > 9) x = x - ship.size;
+          if (d == 1 && y + ship.size > 9) y = y - ship.size;
+          for (let j = 0; j < ship.size; j++) {
             let pt = d == 0 ? [y, x + j] : [y + j, x];
             if (
-              segments.find((s) => s.y == pt[0] && s.x == pt[1]) ||
-              borders.find((b) => b.y == pt[0] && b.x == pt[1])
+              segments.some((s) => s.y == pt[0] && s.x == pt[1]) ||
+              borders.some((b) => b.y == pt[0] && b.x == pt[1])
             )
               break;
-            tempSegments.push({ y: pt[0], x: pt[1], color: shipSize });
+            tempSegments.push({ y: pt[0], x: pt[1], color: ship.size });
             tempBorders.push(
               { y: pt[0] - 1, x: pt[1] },
               { y: pt[0] + 1, x: pt[1] },
@@ -203,7 +270,7 @@ module.exports = class Game {
               { y: pt[0] - 1, x: pt[1] + 1 }
             );
           }
-          if (tempSegments.length == shipSize) {
+          if (tempSegments.length == ship.size) {
             segments.push(...tempSegments);
             borders.push(...tempBorders);
             shipSet = true;
@@ -211,16 +278,10 @@ module.exports = class Game {
         }
       }
     });
-    let map = this.generateEmptyMap();
     segments.forEach((s) => {
       map[s.y][s.x] = 1;
     });
     return map;
-
-    function rand(min, max) {
-      let rand = min + Math.random() * (max - min);
-      return Math.round(rand);
-    }
   }
   generateEmptyMap() {
     let map = [];
@@ -232,5 +293,10 @@ module.exports = class Game {
       map.push(tmp);
     }
     return map;
+  }
+
+  rand(min, max) {
+    let rand = min + Math.random() * (max - min);
+    return Math.round(rand);
   }
 };

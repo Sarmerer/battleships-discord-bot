@@ -26,38 +26,4 @@ client.on("message", (message) => {
   }
 });
 
-function startGame(message) {
-  let map = generateMap();
-  let you = mapToString(map);
-  let embed;
-  message.channel
-    .send(
-      new MessageEmbed().setColor("#0099ff").setTitle("You").setDescription(you)
-    )
-    .then((msg) => (embed = msg));
-
-  // const filter = (m) => m.content.split("").length == 2;
-  // const collector = message.channel.createMessageCollector(filter);
-
-  // collector.on("collect", (m) => {
-  //   let input = m.content.toLowerCase().split("");
-  //   let target = [input[0].charCodeAt() - 96, input[1].charCodeAt() - 47];
-  //   console.log(target);
-  //   if (map[target[1]][target[0]] == 0) map[target[1]][target[0]] = 3;
-  //   if (map[target[1]][target[0]] == 1) map[target[1]][target[0]] = 2;
-  //   let newMap = mapToString(map);
-  //   embed.edit(
-  //     new MessageEmbed()
-  //       .setColor("#0099ff")
-  //       .setTitle("You")
-  //       .setDescription(newMap)
-  //   );
-  //   m.delete();
-  // });
-
-  // collector.on("end", (collected) => {
-  //   console.log(`Collected ${collected.size} items`);
-  // });
-}
-
 client.login(token);
