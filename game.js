@@ -131,13 +131,13 @@ module.exports = class Game {
       y: input[0].charCodeAt() - 97,
     };
     if (between(target.x, 0, 9) & between(target.y, 0, 9)) {
-      this.p1turn = !this.p1turn;
       let shootResult = 1;
       if (victimMap[target.x][target.y] == 1) {
         shootResult = 2;
         this.p1turn ? this.p1score++ : this.p2score++;
       } else {
         shootResult = 3;
+        this.p1turn = !this.p1turn;
       }
 
       victimMap[target.x][target.y] = shootResult;
@@ -150,13 +150,13 @@ module.exports = class Game {
         .edit(this.generateEmbed(this.p2map, this.p1mapFromP2view))
         .catch(console.log);
 
-      if (this.p1score == 20) {
+      if (this.p1score == 2) {
         this.winner = this.p1name;
-        this.end();
+        return this.end();
       }
-      if (this.p2score == 20) {
+      if (this.p2score == 2) {
         this.winner = this.p2name;
-        this.end();
+        return this.end();
       }
     }
 
@@ -187,7 +187,9 @@ module.exports = class Game {
       player == 0
         ? `${this.p1name}-${this.p1discriminator}`
         : `${this.p2name}-${this.p2discriminator}`;
-    let parent = this.message.guild.channels.cache.get("773858485167194153");
+    let parent = this.message.guild.channels.cache.find(
+      (c) => c.name.toLowerCase() == "battleships"
+    );
     return this.message.guild.channels
       .create(chanName, {
         parent: parent,
