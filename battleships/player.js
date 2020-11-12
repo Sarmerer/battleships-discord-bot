@@ -12,13 +12,26 @@ module.exports = class Player {
   }
   /**
    * @param {Array<Array<Number>>} map
+   * @param {Boolean} state
+   * @param {Object} embed
+   * @param {Object} collector
+   * @param {Object} chan
    */
+  set chan(chan) {
+    this._chan = chan;
+  }
+  set collector(collector) {
+    this._scorellector = collector;
+  }
+  set embed(embed) {
+    this._embed = embed;
+  }
+  set turn(state) {
+    this._turn = state;
+  }
   set map(map) {
     this._map = map;
   }
-  /**
-   * @param {Array<Array<Number>>} map
-   */
   set mapWithFog(map) {
     this._mapWithFog = map;
   }
@@ -41,8 +54,20 @@ module.exports = class Player {
   get score() {
     return this._score;
   }
+  get turn() {
+    return this._turn;
+  }
+  get embed() {
+    return this._embed;
+  }
+  get collector() {
+    return this._scorellector;
+  }
+  get chan() {
+    return this._chan;
+  }
 
-  addScore() {  
+  addScore() {
     this._score++;
   }
 };

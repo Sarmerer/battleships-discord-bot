@@ -26,7 +26,7 @@ module.exports = class Game {
 
     this._p1 = new Player(author.id, author.username, author.discriminator);
     this._p2 = new Player(rival.id, rival.username, rival.discriminator);
-    this._message = message;
+    this._guild = message.guild;
 
     console.log(
       `New game has been started! Players: ${this._p1.name} and ${this._p2.name}`
@@ -38,127 +38,69 @@ module.exports = class Game {
     this._p1.mapWithFog = this.generateEmptyMap();
     this._p2.mapWithFog = this.generateEmptyMap();
 
-    this._p1turn = Math.random() <= 0.5;
+    (Math.random() <= 0.5 ? this._p1 : this._p2).turn = true;
     console.log(
-      `${(this._p1turn ? this._p1 : this._p2).name} makes the first turn`
+      `${(this._p1.turn ? this._p1 : this._p2).name} makes the first turn`
     );
 
-    this.createChannelFor(0)
-      .then((chan) => {
-        chan
-          .send(this.generateEmbed(this._p1.map, this._p2.mapWithFog))
-          .then((embed) => {
-            this.p1embed = embed;
-            this.p1collector = chan.createMessageCollector(
-              (m) => m.author.id == this._p1.id
-            );
-            this.p1collector.on("collect", (m) => {
-              if (m.content == "sp") {
-                this.p1collector.stop();
-                this.p2collector.stop();
-              }
-              if (!this._p1turn) return;
-              this.shoot(m);
-              m.delete();
-            });
-            this.p1collector.on("end", (_collected) => {
-              if (this.winner)
-                setTimeout(() => {
-                  chan.delete();
-                }, 60000);
-              else chan.delete();
-            });
-          })
-          .catch(console.log);
-      })
-      .catch((error) => {
-        return { error: error };
-      });
-
-    this.createChannelFor(1)
-      .then((chan) => {
-        chan
-          .send(this.generateEmbed(this._p2.map, this._p1.mapWithFog))
-          .then((embed) => {
-            this.p2embed = embed;
-            this.p2collector = chan.createMessageCollector(
-              (m) => m.author.id == this._p2.id
-            );
-            this.p2collector.on("collect", (m) => {
-              if (m.content == "sp") {
-                this.p1collector.stop();
-                this.p2collector.stop();
-              }
-              if (this._p1turn) return;
-              this.shoot(m);
-              m.delete();
-            });
-            this.p2collector.on("end", (_collected) => {
-              if (this.winner)
-                setTimeout(() => {
-                  chan.delete();
-                }, 60000);
-              else chan.delete();
-            });
-          })
-          .catch(console.log);
-      })
-      .catch((error) => {
-        return { error: error };
-      });
+    this.createChannelFor(this._p1);
+    this.createChannelFor(this._p2);
   }
 
   end() {
-    this.p1embed
+    this._p1.embed
       .edit(this.generateEmbed(this._p1.map, this._p2.map, { end: true }))
       .catch(console.log);
-    this.p2embed
+    this._p2.embed
       .edit(this.generateEmbed(this._p2.map, this._p1.map, { end: true }))
       .catch(console.log);
 
-    this.p1collector.stop();
-    this.p2collector.stop();
+    this._p1.collector.stop();
+    this._p2.collector.stop();
   }
 
   shoot(message) {
-    let victimMap = this._p1turn ? this._p2.map : this._p1.map;
-    let victimMapFromShooterView = this._p1turn
-      ? this._p2.mapWithFog
-      : this._p1.mapWithFog;
+    let rivalMap = (this._p1.turn ? this._p2 : this._p1).map;
+    let ravalMapWithFog = (this._p1.turn ? this._p2 : this._p1).mapWithFog;
 
     let input = message.content.toLowerCase().replace(/\s+/g, "").split("");
     let target = {
       x: input[1].charCodeAt() - 48,
       y: input[0].charCodeAt() - 97,
     };
-    if (between(target.x, 0, 9) & between(target.y, 0, 9)) {
-      let shootResult = 1;
-      if (victimMap[target.x][target.y] == 1) {
-        shootResult = 2;
-        this._p1turn ? this._p1.addScore() : this._p2.addScore();
-      } else {
-        shootResult = 3;
-        this._p1turn = !this._p1turn;
-      }
+    if (!between(target.x, 0, 9) || !between(target.y, 0, 9))
+      return {
+        error: "Available range: `A0 <= n <= J9`, where `n` is your target",
+      };
+    let shootResult = 1;
+    if (rivalMap[target.x][target.y] == 1) {
+      shootResult = 2;
+      (this._p1.turn ? this._p1 : this._p2).addScore();
+    } else {
+      shootResult = 3;
+      this._p1.turn = !this._p1.turn;
+      this._p2.turn = !this._p2.turn;
+    }
 
-      victimMap[target.x][target.y] = shootResult;
-      victimMapFromShooterView[target.x][target.y] = shootResult;
+    rivalMap[target.x][target.y] = shootResult;
+    ravalMapWithFog[target.x][target.y] = shootResult;
 
-      this.p1embed
-        .edit(this.generateEmbed(this._p1.map, this._p2.mapWithFog))
-        .catch(console.log);
-      this.p2embed
-        .edit(this.generateEmbed(this._p2.map, this._p1.mapWithFog))
-        .catch(console.log);
+    this._p1.embed
+      .edit(this.generateEmbed(this._p1.map, this._p2.mapWithFog))
+      .catch(console.log);
+    this._p2.embed
+      .edit(this.generateEmbed(this._p2.map, this._p1.mapWithFog))
+      .catch(console.log);
 
-      if (this._p1.score == CONFIG.WIN_SCORE) {
-        this.winner = this._p1.name;
-        return this.end();
-      }
-      if (this._p2.score == CONFIG.WIN_SCORE) {
-        this.winner = this._p2.name;
-        return this.end();
-      }
+    let winner =
+      this._p1.score == CONFIG.WIN_SCORE
+        ? this._p1.name
+        : this._p2.score == CONFIG.WIN_SCORE
+        ? this._p2.name
+        : null;
+    if (winner) {
+      this.winner = winner;
+      return this.end();
     }
 
     function between(x, min, max) {
@@ -178,31 +120,24 @@ module.exports = class Game {
           `${this.winner} is a winner!`,
           "This channel will be deleted in a minute"
         )
-      : embed.setFooter(
-          `${this._p1turn ? this._p1.name : this._p2.name}'s turn`
-        );
+      : embed.setFooter(`${(this._p1.turn ? this._p1 : this._p2).name}'s turn`);
     return embed;
   }
 
   async createChannelFor(player) {
-    let playerID = player == 0 ? this._p1.id : this._p2.id;
-    let chanName =
-      player == 0
-        ? `${this._p1.name}-${this._p1.discriminator}`
-        : `${this._p2.name}-${this._p2.discriminator}`;
-    let parent = this._message.guild.channels.cache.find(
+    let parent = this._guild.channels.cache.find(
       (c) => c.name.toLowerCase() == "battleships"
     );
-    return this._message.guild.channels
-      .create(chanName, {
+    this._guild.channels
+      .create(`${player.name}-${player.discriminator}`, {
         parent: parent,
         permissionOverwrites: [
           {
-            id: this._message.guild.roles.everyone,
+            id: this._guild.roles.everyone,
             deny: ["VIEW_CHANNEL"],
           },
           {
-            id: playerID,
+            id: player.id,
             allow: ["VIEW_CHANNEL"],
           },
           {
@@ -211,7 +146,57 @@ module.exports = class Game {
           },
         ],
       })
-      .catch(console.log);
+      .then((chan) => {
+        player.chan = chan;
+        chan
+          .send(this.generateEmbed(player.map, player.mapWithFog))
+          .then((embed) => {
+            player.embed = embed;
+            player.collector = chan.createMessageCollector(
+              (m) => m.author.id == player.id
+            );
+            player.collector.on("collect", (m) => {
+              if (m.content == "sp") {
+                this._p1.collector.stop();
+                this._p2.collector.stop();
+              }
+              if (m.content.startsWith("> ")) {
+                let opponentChan = (player.id == this._p1.id
+                  ? this._p2
+                  : this._p1
+                ).chan;
+                if (!opponentChan) return;
+                opponentChan
+                  .send(`${m.author.username} says: ${m.content.substr(2)}`)
+                  .then((dm) => {
+                    setTimeout(() => {
+                      if (dm.deletable) dm.delete();
+                    }, 10000);
+                  });
+                if (m.deletable) m.delete();
+                return;
+              }
+              if (!player.turn) return;
+              let outcome = this.shoot(m);
+              if (outcome && outcome.error)
+                m.reply(outcome.error).then((r) => {
+                  if (r.deletable) r.delete({ timeout: 10000 });
+                });
+              if (m.deletable) m.delete();
+            });
+            player.collector.on("end", (_collected) => {
+              if (this.winner)
+                setTimeout(() => {
+                  if (chan.deletable) chan.delete();
+                }, 60000);
+              else if (chan.deletable) chan.delete();
+            });
+          })
+          .catch(console.log);
+      })
+      .catch((error) => {
+        return { error: error };
+      });
   }
 
   mapToString(map) {
