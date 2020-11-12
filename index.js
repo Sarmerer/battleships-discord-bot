@@ -2,7 +2,7 @@
 const { Client, MessageEmbed } = require("discord.js");
 const client = new Client();
 
-const Game = require("./game");
+const Game = require("./battleships/game");
 const { prefix, token } = require("./config.json");
 const { parseMessage } = require("./utils");
 

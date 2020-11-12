@@ -1,6 +1,11 @@
-const { getUserFromMention } = require("./utils");
+const { getUserFromMention } = require("../utils");
 const { MessageEmbed } = require("discord.js");
-const { prefix, bot_id: botID } = require("./config.json");
+const { prefix, bot_id: botID } = require("../config.json");
+const Player = require("./player");
+
+const CONFIG = {};
+CONFIG.WIN_SCORE = 20;
+CONFIG.MAP_SIZE = 10;
 
 module.exports = class Game {
   /**
@@ -8,55 +13,51 @@ module.exports = class Game {
    * @param {String} opponent
    */
   constructor(message, mention) {
-    let opponent = getUserFromMention(message, mention);
-    if (!opponent || opponent.bot) {
+    let rival = getUserFromMention(message, mention);
+    if (!rival || rival.bot) {
       message
         .reply(`Usage: ${prefix}play @someone`)
         .then((m) => m.delete({ timeout: 5000 }))
         .catch(console.log);
       return { error: "no opponent mentioned" };
     }
-    this.p1id = message.author.id;
-    this.p1name = message.author.username;
-    this.p1discriminator = message.author.discriminator;
+    let author = message.author;
+    rival = rival.user;
 
-    this.p2id = opponent.id;
-    this.p2name = opponent.user.username;
-    this.p2discriminator = opponent.user.discriminator;
-    this.message = message;
+    this._p1 = new Player(author.id, author.username, author.discriminator);
+    this._p2 = new Player(rival.id, rival.username, rival.discriminator);
+    this._message = message;
 
     console.log(
-      `New game has been started! Players: ${this.p1name} and ${this.p2name}`
+      `New game has been started! Players: ${this._p1.name} and ${this._p2.name}`
     );
   }
   start() {
-    this.p1map = this.generateMap();
-    this.p2map = this.generateMap();
-    this.p1mapFromP2view = this.generateEmptyMap();
-    this.p2mapFromP1view = this.generateEmptyMap();
+    this._p1.map = this.generateMap();
+    this._p2.map = this.generateMap();
+    this._p1.mapWithFog = this.generateEmptyMap();
+    this._p2.mapWithFog = this.generateEmptyMap();
 
-    this.p1score = 0;
-    this.p2score = 0;
-    this.winner;
-
-    this.p1turn = Math.random() <= 0.5;
-    console.log(`First turn makes player ${this.p1turn ? 1 : 2}`);
+    this._p1turn = Math.random() <= 0.5;
+    console.log(
+      `${(this._p1turn ? this._p1 : this._p2).name} makes the first turn`
+    );
 
     this.createChannelFor(0)
       .then((chan) => {
         chan
-          .send(this.generateEmbed(this.p1map, this.p2mapFromP1view))
+          .send(this.generateEmbed(this._p1.map, this._p2.mapWithFog))
           .then((embed) => {
             this.p1embed = embed;
             this.p1collector = chan.createMessageCollector(
-              (m) => m.author.id == this.p1id
+              (m) => m.author.id == this._p1.id
             );
             this.p1collector.on("collect", (m) => {
               if (m.content == "sp") {
                 this.p1collector.stop();
                 this.p2collector.stop();
               }
-              if (!this.p1turn) return;
+              if (!this._p1turn) return;
               this.shoot(m);
               m.delete();
             });
@@ -77,18 +78,18 @@ module.exports = class Game {
     this.createChannelFor(1)
       .then((chan) => {
         chan
-          .send(this.generateEmbed(this.p2map, this.p1mapFromP2view))
+          .send(this.generateEmbed(this._p2.map, this._p1.mapWithFog))
           .then((embed) => {
             this.p2embed = embed;
             this.p2collector = chan.createMessageCollector(
-              (m) => m.author.id == this.p2id
+              (m) => m.author.id == this._p2.id
             );
             this.p2collector.on("collect", (m) => {
               if (m.content == "sp") {
                 this.p1collector.stop();
                 this.p2collector.stop();
               }
-              if (this.p1turn) return;
+              if (this._p1turn) return;
               this.shoot(m);
               m.delete();
             });
@@ -109,10 +110,10 @@ module.exports = class Game {
 
   end() {
     this.p1embed
-      .edit(this.generateEmbed(this.p1map, this.p2map, { end: true }))
+      .edit(this.generateEmbed(this._p1.map, this._p2.map, { end: true }))
       .catch(console.log);
     this.p2embed
-      .edit(this.generateEmbed(this.p2map, this.p1map, { end: true }))
+      .edit(this.generateEmbed(this._p2.map, this._p1.map, { end: true }))
       .catch(console.log);
 
     this.p1collector.stop();
@@ -120,10 +121,10 @@ module.exports = class Game {
   }
 
   shoot(message) {
-    let victimMap = this.p1turn ? this.p2map : this.p1map;
-    let victimMapFromShooterView = this.p1turn
-      ? this.p2mapFromP1view
-      : this.p1mapFromP2view;
+    let victimMap = this._p1turn ? this._p2.map : this._p1.map;
+    let victimMapFromShooterView = this._p1turn
+      ? this._p2.mapWithFog
+      : this._p1.mapWithFog;
 
     let input = message.content.toLowerCase().replace(/\s+/g, "").split("");
     let target = {
@@ -134,28 +135,28 @@ module.exports = class Game {
       let shootResult = 1;
       if (victimMap[target.x][target.y] == 1) {
         shootResult = 2;
-        this.p1turn ? this.p1score++ : this.p2score++;
+        this._p1turn ? this._p1.addScore() : this._p2.addScore();
       } else {
         shootResult = 3;
-        this.p1turn = !this.p1turn;
+        this._p1turn = !this._p1turn;
       }
 
       victimMap[target.x][target.y] = shootResult;
       victimMapFromShooterView[target.x][target.y] = shootResult;
 
       this.p1embed
-        .edit(this.generateEmbed(this.p1map, this.p2mapFromP1view))
+        .edit(this.generateEmbed(this._p1.map, this._p2.mapWithFog))
         .catch(console.log);
       this.p2embed
-        .edit(this.generateEmbed(this.p2map, this.p1mapFromP2view))
+        .edit(this.generateEmbed(this._p2.map, this._p1.mapWithFog))
         .catch(console.log);
 
-      if (this.p1score == 2) {
-        this.winner = this.p1name;
+      if (this._p1.score == CONFIG.WIN_SCORE) {
+        this.winner = this._p1.name;
         return this.end();
       }
-      if (this.p2score == 2) {
-        this.winner = this.p2name;
+      if (this._p2.score == CONFIG.WIN_SCORE) {
+        this.winner = this._p2.name;
         return this.end();
       }
     }
@@ -177,25 +178,27 @@ module.exports = class Game {
           `${this.winner} is a winner!`,
           "This channel will be deleted in a minute"
         )
-      : embed.setFooter(`${this.p1turn ? this.p1name : this.p2name}'s turn`);
+      : embed.setFooter(
+          `${this._p1turn ? this._p1.name : this._p2.name}'s turn`
+        );
     return embed;
   }
 
   async createChannelFor(player) {
-    let playerID = player == 0 ? this.p1id : this.p2id;
+    let playerID = player == 0 ? this._p1.id : this._p2.id;
     let chanName =
       player == 0
-        ? `${this.p1name}-${this.p1discriminator}`
-        : `${this.p2name}-${this.p2discriminator}`;
-    let parent = this.message.guild.channels.cache.find(
+        ? `${this._p1.name}-${this._p1.discriminator}`
+        : `${this._p2.name}-${this._p2.discriminator}`;
+    let parent = this._message.guild.channels.cache.find(
       (c) => c.name.toLowerCase() == "battleships"
     );
-    return this.message.guild.channels
+    return this._message.guild.channels
       .create(chanName, {
         parent: parent,
         permissionOverwrites: [
           {
-            id: this.message.guild.roles.everyone,
+            id: this._message.guild.roles.everyone,
             deny: ["VIEW_CHANNEL"],
           },
           {
