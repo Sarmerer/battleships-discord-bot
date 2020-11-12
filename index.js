@@ -18,7 +18,7 @@ client.on("error", console.error);
 client.on("message", (message) => {
   if (message.author.bot || !message.guild) return;
   let { args, command } = parseMessage(message);
-  if (command == "fight") {
+  if (command === "fight") {
     message.delete();
     let game = new Game(message, args[0]);
     if (game.error) return;

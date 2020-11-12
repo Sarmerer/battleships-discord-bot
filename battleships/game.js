@@ -73,7 +73,7 @@ module.exports = class Game {
         error: "Available range: `A0 <= n <= J9`, where `n` is your target",
       };
     let shootResult = 1;
-    if (rivalMap[target.x][target.y] == 1) {
+    if (rivalMap[target.x][target.y] === 1) {
       shootResult = 2;
       (this._p1.turn ? this._p1 : this._p2).addScore();
     } else {
@@ -93,9 +93,9 @@ module.exports = class Game {
       .catch(console.log);
 
     let winner =
-      this._p1.score == CONFIG.WIN_SCORE
+      this._p1.score === CONFIG.WIN_SCORE
         ? this._p1.name
-        : this._p2.score == CONFIG.WIN_SCORE
+        : this._p2.score === CONFIG.WIN_SCORE
         ? this._p2.name
         : null;
     if (winner) {
@@ -126,7 +126,7 @@ module.exports = class Game {
 
   async createChannelFor(player) {
     let parent = this._guild.channels.cache.find(
-      (c) => c.name.toLowerCase() == "battleships"
+      (c) => c.name.toLowerCase() === "battleships"
     );
     this._guild.channels
       .create(`${player.name}-${player.discriminator}`, {
@@ -153,15 +153,15 @@ module.exports = class Game {
           .then((embed) => {
             player.embed = embed;
             player.collector = chan.createMessageCollector(
-              (m) => m.author.id == player.id
+              (m) => m.author.id === player.id
             );
             player.collector.on("collect", (m) => {
-              if (m.content == "sp") {
+              if (m.content === "sp") {
                 this._p1.collector.stop();
                 this._p2.collector.stop();
               }
               if (m.content.startsWith("> ")) {
-                let opponentChan = (player.id == this._p1.id
+                let opponentChan = (player.id === this._p1.id
                   ? this._p2
                   : this._p1
                 ).chan;
@@ -205,8 +205,8 @@ module.exports = class Game {
     for (let i = 0; i < 11; i++) {
       let tmp = [];
       for (let j = 0; j < 11; j++) {
-        if (i == 0 && j > 0) tmp.push(j - 1);
-        if (j == 0 && i > 0) tmp.push(i - 1);
+        if (i === 0 && j > 0) tmp.push(j - 1);
+        if (j === 0 && i > 0) tmp.push(i - 1);
       }
       if (i > 0) tmp.push(...map[i - 1]);
       base.push(tmp);
@@ -215,11 +215,12 @@ module.exports = class Game {
     for (let i = 0; i < 11; i++) {
       for (let j = 0; j < 11; j++) {
         let cell = base[i][j];
-        if (j == 0 && i > 0) res += nums[cell];
-        else if (i == 0 && j > 0)
+        if (j === 0 && i > 0) res += nums[cell];
+        else if (i === 0 && j > 0)
           res += ":regional_indicator_" + String.fromCharCode(96 + j) + ":";
         else
-          res += cell == 1 ? "🔳" : cell == 2 ? "🟥" : cell == 3 ? "❌" : "⬛";
+          res +=
+            cell === 1 ? "🔳" : cell === 2 ? "🟥" : cell === 3 ? "❌" : "⬛";
       }
       res += "\n";
     }
@@ -236,7 +237,6 @@ module.exports = class Game {
       {
         size: 3,
         amount: 2,
-        segments: [],
       },
       {
         size: 2,
@@ -260,13 +260,13 @@ module.exports = class Game {
           let d = this.rand(0, 1);
           let x = this.rand(0, 9);
           let y = this.rand(0, 9);
-          if (d == 0 && x + ship.size > 9) x = x - ship.size;
-          if (d == 1 && y + ship.size > 9) y = y - ship.size;
+          if (d === 0 && x + ship.size > 9) x = x - ship.size;
+          if (d === 1 && y + ship.size > 9) y = y - ship.size;
           for (let j = 0; j < ship.size; j++) {
-            let pt = d == 0 ? [y, x + j] : [y + j, x];
+            let pt = d === 0 ? [y, x + j] : [y + j, x];
             if (
-              segments.some((s) => s.y == pt[0] && s.x == pt[1]) ||
-              borders.some((b) => b.y == pt[0] && b.x == pt[1])
+              segments.some((s) => s.y === pt[0] && s.x === pt[1]) ||
+              borders.some((b) => b.y === pt[0] && b.x === pt[1])
             )
               break;
             tempSegments.push({ y: pt[0], x: pt[1], color: ship.size });
@@ -281,7 +281,7 @@ module.exports = class Game {
               { y: pt[0] - 1, x: pt[1] + 1 }
             );
           }
-          if (tempSegments.length == ship.size) {
+          if (tempSegments.length === ship.size) {
             segments.push(...tempSegments);
             borders.push(...tempBorders);
             shipSet = true;
