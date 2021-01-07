@@ -1,6 +1,6 @@
-const { getUserFromMention } = require("../utils");
+const { getUserFromMention } = require("./utils");
 const { MessageEmbed } = require("discord.js");
-const { prefix, bot_id: botID } = require("../config.json");
+const { prefix, bot_id: botID } = require("./config.json");
 const Player = require("./player");
 
 const CONFIG = {};
@@ -12,12 +12,14 @@ module.exports = class Game {
    * @param {Object} message
    * @param {String} opponent
    */
-  constructor(message, mention) {
+  constructor(message, mention, gamesManager) {
     let rival = getUserFromMention(message, mention);
     if (!rival || rival.bot) {
       message
         .reply(`Usage: ${prefix}play @someone`)
-        .then((m) => m.delete({ timeout: 5000 }))
+        .then((m) => {
+          if (m.deletable) m.delete({ timeout: 5000 });
+        })
         .catch(console.log);
       return { error: "no opponent mentioned" };
     }
@@ -26,11 +28,15 @@ module.exports = class Game {
 
     this._p1 = new Player(author.id, author.username, author.discriminator);
     this._p2 = new Player(rival.id, rival.username, rival.discriminator);
+    this._gamesManager = gamesManager;
     this._guild = message.guild;
 
     console.log(
       `New game has been started! Players: ${this._p1.name} and ${this._p2.name}`
     );
+  }
+  players() {
+    return [this._p1.id, this._p2.id];
   }
   start() {
     this._p1.map = this.generateMap();
@@ -190,6 +196,7 @@ module.exports = class Game {
                   if (chan.deletable) chan.delete();
                 }, 60000);
               else if (chan.deletable) chan.delete();
+              this._gamesManager.splice(player.id);
             });
           })
           .catch(console.log);

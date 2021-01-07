@@ -2,13 +2,13 @@
   "name": "battleships-discord-bot",
   "version": "0.0.1",
   "description": "",
-  "main": "index.js",
+  "main": "./bot/index.js",
   "dependencies": {
     "discord.js": "^12.4.1"
   },
   "devDependencies": {},
   "scripts": {
-    "run":"node ."
+    "start": "node ."
   },
   "repository": {
     "type": "git",

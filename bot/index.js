@@ -2,9 +2,12 @@
 const { Client, MessageEmbed } = require("discord.js");
 const client = new Client();
 
-const Game = require("./battleships/game");
+const Game = require("./game");
+const GamesManager = require("./games_manager");
 const { prefix, token } = require("./config.json");
 const { parseMessage } = require("./utils");
+
+let gamesManager = new GamesManager();
 
 client.once("ready", () => {
   console.log(`${client.user.username} ready!`);
@@ -19,10 +22,18 @@ client.on("message", (message) => {
   if (message.author.bot || !message.guild) return;
   let { args, command } = parseMessage(message);
   if (command === "fight") {
-    message.delete();
-    let game = new Game(message, args[0]);
+    if (message.deletable) message.delete();
+    if (gamesManager.inGame(message.author.id))
+      return message
+        .reply(`you are already in a fight, finish it first`)
+        .then((m) => {
+          if (m.deletable) m.delete({ timeout: 5000 });
+        })
+        .catch(console.log);
+    let game = new Game(message, args[0], gamesManager);
     if (game.error) return;
     game.start();
+    if (gamesManager.push(...game.players()));
   }
 });
 
