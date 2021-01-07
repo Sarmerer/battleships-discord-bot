@@ -2,17 +2,24 @@ const { getUserFromMention } = require("./utils");
 const { MessageEmbed } = require("discord.js");
 const { prefix, bot_id: botID } = require("./config.json");
 const Player = require("./player");
+const Ships = require("./ships");
 
-const CONFIG = {};
-CONFIG.WIN_SCORE = 20;
-CONFIG.MAP_SIZE = 10;
+const CFG = {};
+
+CFG.CELL_EMPTY = 0;
+CFG.CELL_SHIP = 1;
+CFG.CELL_SHIP_HIT = 2;
+CFG.CELL_MISS = 3;
+CFG.CELL_SHIP_SUNK = 4;
 
 module.exports = class Game {
   /**
    * @param {Object} message
    * @param {String} opponent
+   * @param {gamesManager} gamesManager
+   * @param {Object} preset
    */
-  constructor(message, mention, gamesManager) {
+  constructor(message, mention, gamesManager, preset) {
     let rival = getUserFromMention(message, mention);
     if (!rival || rival.bot) {
       message
@@ -31,9 +38,9 @@ module.exports = class Game {
     this._gamesManager = gamesManager;
     this._guild = message.guild;
 
-    console.log(
-      `New game has been started! Players: ${this._p1.name} and ${this._p2.name}`
-    );
+    this._preset = preset;
+    CFG.MAP_SIZE = preset.map_size;
+    CFG.WIN_SCORE = preset.win_score;
   }
   players() {
     return [this._p1.id, this._p2.id];
@@ -46,7 +53,9 @@ module.exports = class Game {
 
     (Math.random() <= 0.5 ? this._p1 : this._p2).turn = true;
     console.log(
-      `${(this._p1.turn ? this._p1 : this._p2).name} makes the first turn`
+      `New game has been started! Players: ${this._p1.name} and ${
+        this._p2.name
+      } | ${(this._p1.turn ? this._p1 : this._p2).name} makes the first turn`
     );
 
     this.createChannelFor(this._p1);
@@ -78,12 +87,19 @@ module.exports = class Game {
       return {
         error: "Available range: `A0 <= n <= J9`, where `n` is your target",
       };
-    let shootResult = 1;
+    if (
+      rivalMap[target.x][target.y] === CFG.CELL_SHIP_HIT ||
+      rivalMap[target.x][target.y] === CFG.CELL_MISS
+    )
+      return {
+        error: "You have already shot that cell, choose another one",
+      };
+    let shootResult = CFG.CELL_SHIP;
     if (rivalMap[target.x][target.y] === 1) {
-      shootResult = 2;
+      shootResult = CFG.CELL_SHIP_HIT;
       (this._p1.turn ? this._p1 : this._p2).addScore();
     } else {
-      shootResult = 3;
+      shootResult = CFG.CELL_MISS;
       this._p1.turn = !this._p1.turn;
       this._p2.turn = !this._p2.turn;
     }
@@ -99,9 +115,9 @@ module.exports = class Game {
       .catch(console.log);
 
     let winner =
-      this._p1.score === CONFIG.WIN_SCORE
+      this._p1.score === CFG.WIN_SCORE
         ? this._p1.name
-        : this._p2.score === CONFIG.WIN_SCORE
+        : this._p2.score === CFG.WIN_SCORE
         ? this._p2.name
         : null;
     if (winner) {
@@ -209,9 +225,9 @@ module.exports = class Game {
   mapToString(map) {
     const nums = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
     let base = [];
-    for (let i = 0; i < 11; i++) {
+    for (let i = 0; i <= CFG.MAP_SIZE; i++) {
       let tmp = [];
-      for (let j = 0; j < 11; j++) {
+      for (let j = 0; j <= CFG.MAP_SIZE; j++) {
         if (i === 0 && j > 0) tmp.push(j - 1);
         if (j === 0 && i > 0) tmp.push(i - 1);
       }
@@ -219,15 +235,25 @@ module.exports = class Game {
       base.push(tmp);
     }
     let res = "";
-    for (let i = 0; i < 11; i++) {
-      for (let j = 0; j < 11; j++) {
+    for (let i = 0; i <= CFG.MAP_SIZE; i++) {
+      for (let j = 0; j <= CFG.MAP_SIZE; j++) {
         let cell = base[i][j];
-        if (j === 0 && i > 0) res += nums[cell];
-        else if (i === 0 && j > 0)
+        if (j === 0 && i > 0) {
+          res += nums[cell];
+        } else if (i === 0 && j > 0) {
           res += ":regional_indicator_" + String.fromCharCode(96 + j) + ":";
-        else
+        } else {
           res +=
-            cell === 1 ? "🔳" : cell === 2 ? "🟥" : cell === 3 ? "❌" : "⬛";
+            cell === CFG.CELL_SHIP
+              ? "🔳"
+              : cell === CFG.CELL_SHIP_HIT
+              ? "🆘"
+              : cell === CFG.CELL_SHIP_SUNK
+              ? "🟥"
+              : cell === CFG.CELL_MISS
+              ? "❌"
+              : "⬛";
+        }
       }
       res += "\n";
     }
@@ -236,28 +262,10 @@ module.exports = class Game {
   }
 
   generateMap() {
-    let ships = [
-      {
-        size: 4,
-        amount: 1,
-      },
-      {
-        size: 3,
-        amount: 2,
-      },
-      {
-        size: 2,
-        amount: 3,
-      },
-      {
-        size: 1,
-        amount: 4,
-      },
-    ];
+    let preset = this._preset;
     let map = this.generateEmptyMap();
-    let borders = [];
-    let segments = [];
-    ships.forEach((ship) => {
+    let ships = new Ships();
+    preset.ships.forEach((ship) => {
       if (!ship.size) return;
       for (let i = 0; i < ship.amount; i++) {
         let shipSet = false;
@@ -265,47 +273,44 @@ module.exports = class Game {
           let tempSegments = [];
           let tempBorders = [];
           let d = this.rand(0, 1);
-          let x = this.rand(0, 9);
-          let y = this.rand(0, 9);
-          if (d === 0 && x + ship.size > 9) x = x - ship.size;
-          if (d === 1 && y + ship.size > 9) y = y - ship.size;
+          let x = this.rand(0, CFG.MAP_SIZE - 1);
+          let y = this.rand(0, CFG.MAP_SIZE - 1);
+          if (d === 0 && x + ship.size > CFG.MAP_SIZE - 1) x = x - ship.size;
+          if (d === 1 && y + ship.size > CFG.MAP_SIZE - 1) y = y - ship.size;
           for (let j = 0; j < ship.size; j++) {
-            let pt = d === 0 ? [y, x + j] : [y + j, x];
-            if (
-              segments.some((s) => s.y === pt[0] && s.x === pt[1]) ||
-              borders.some((b) => b.y === pt[0] && b.x === pt[1])
-            )
-              break;
-            tempSegments.push({ y: pt[0], x: pt[1], color: ship.size });
+            let pt = d === 0 ? [x + j, y] : [x, y + j];
+            if (ships.collides(pt[0], pt[1])) break;
+            tempSegments.push({ x: pt[0], y: pt[1], sunk: false });
             tempBorders.push(
-              { y: pt[0] - 1, x: pt[1] },
-              { y: pt[0] + 1, x: pt[1] },
-              { y: pt[0], x: pt[1] - 1 },
-              { y: pt[0], x: pt[1] + 1 },
-              { y: pt[0] - 1, x: pt[1] - 1 },
-              { y: pt[0] + 1, x: pt[1] + 1 },
-              { y: pt[0] + 1, x: pt[1] - 1 },
-              { y: pt[0] - 1, x: pt[1] + 1 }
+              { x: pt[0] - 1, y: pt[1] },
+              { x: pt[0] + 1, y: pt[1] },
+              { x: pt[0], y: pt[1] - 1 },
+              { x: pt[0], y: pt[1] + 1 },
+              { x: pt[0] - 1, y: pt[1] - 1 },
+              { x: pt[0] + 1, y: pt[1] + 1 },
+              { x: pt[0] + 1, y: pt[1] - 1 },
+              { x: pt[0] - 1, y: pt[1] + 1 }
             );
           }
           if (tempSegments.length === ship.size) {
-            segments.push(...tempSegments);
-            borders.push(...tempBorders);
+            ships.newShip(ship.size, tempSegments, tempBorders);
             shipSet = true;
           }
         }
       }
     });
-    segments.forEach((s) => {
-      map[s.y][s.x] = 1;
+    ships.all.forEach((ship) => {
+      ship.cells.forEach((s) => {
+        map[s.y][s.x] = CFG.CELL_SHIP;
+      });
     });
     return map;
   }
   generateEmptyMap() {
     let map = [];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < CFG.MAP_SIZE; i++) {
       let tmp = [];
-      for (let j; j < 10; j++) {
+      for (let j; j < CFG.MAP_SIZE; j++) {
         tmp.push(0);
       }
       map.push(tmp);
