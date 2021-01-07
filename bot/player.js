@@ -1,3 +1,5 @@
+const Ships = require("./ships");
+
 module.exports = class Player {
   /**
    * @param {String} id
@@ -8,6 +10,7 @@ module.exports = class Player {
     this._id = id;
     this._name = name;
     this._discriminator = discriminator;
+    this._ships = new Ships();
     this._score = 0;
   }
   /**
@@ -35,6 +38,9 @@ module.exports = class Player {
   set mapWithFog(map) {
     this._mapWithFog = map;
   }
+  set ships(ships) {
+    this._ships = ships;
+  }
 
   get id() {
     return this._id;
@@ -54,6 +60,9 @@ module.exports = class Player {
   get score() {
     return this._score;
   }
+  get ships() {
+    return this._ships;
+  }
   get turn() {
     return this._turn;
   }
@@ -65,6 +74,9 @@ module.exports = class Player {
   }
   get chan() {
     return this._chan;
+  }
+  get ships() {
+    return this._ships;
   }
 
   addScore() {

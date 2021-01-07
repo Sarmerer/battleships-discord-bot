@@ -46,8 +46,13 @@ module.exports = class Game {
     return [this._p1.id, this._p2.id];
   }
   start() {
-    this._p1.map = this.generateMap();
-    this._p2.map = this.generateMap();
+    let map1 = this.generateMap();
+    this._p1.map = map1[0];
+    this._p1.ships = map1[1];
+
+    let map2 = this.generateMap();
+    this._p2.map = map2[0];
+    this._p2.ships = map2[1];
     this._p1.mapWithFog = this.generateEmptyMap();
     this._p2.mapWithFog = this.generateEmptyMap();
 
@@ -76,14 +81,15 @@ module.exports = class Game {
 
   shoot(message) {
     let rivalMap = (this._p1.turn ? this._p2 : this._p1).map;
-    let ravalMapWithFog = (this._p1.turn ? this._p2 : this._p1).mapWithFog;
+    let rivalMapWithFog = (this._p1.turn ? this._p2 : this._p1).mapWithFog;
+    let ships = this._p1.turn ? this._p2.ships : this._p1.ships;
 
     let input = message.content.toLowerCase().replace(/\s+/g, "").split("");
     let target = {
       x: input[1].charCodeAt() - 48,
       y: input[0].charCodeAt() - 97,
     };
-    if (!between(target.x, 0, 9) || !between(target.y, 0, 9))
+    if (!between([target.x, target.y], 0, CFG.MAP_SIZE))
       return {
         error: "Available range: `A0 <= n <= J9`, where `n` is your target",
       };
@@ -105,7 +111,8 @@ module.exports = class Game {
     }
 
     rivalMap[target.x][target.y] = shootResult;
-    ravalMapWithFog[target.x][target.y] = shootResult;
+    rivalMapWithFog[target.x][target.y] = shootResult;
+    markSunk(ships.sunk(target.x, target.y));
 
     this._p1.embed
       .edit(this.generateEmbed(this._p1.map, this._p2.mapWithFog))
@@ -125,8 +132,16 @@ module.exports = class Game {
       return this.end();
     }
 
-    function between(x, min, max) {
-      return x >= min && x <= max;
+    function markSunk(cells) {
+      if (!cells.length) return;
+      cells.forEach((c) => {
+        rivalMap[c[0]][c[1]] = CFG.CELL_SHIP_SUNK;
+        rivalMapWithFog[c[0]][c[1]] = CFG.CELL_SHIP_SUNK;
+      });
+    }
+
+    function between(targets, min, max) {
+      return targets.every((t) => t >= min && t <= max);
     }
   }
 
@@ -181,6 +196,7 @@ module.exports = class Game {
               if (m.content === "sp") {
                 this._p1.collector.stop();
                 this._p2.collector.stop();
+                return;
               }
               if (m.content.startsWith("> ")) {
                 let opponentChan = (player.id === this._p1.id
@@ -247,9 +263,9 @@ module.exports = class Game {
             cell === CFG.CELL_SHIP
               ? "🔳"
               : cell === CFG.CELL_SHIP_HIT
-              ? "🆘"
+              ? "🔥"
               : cell === CFG.CELL_SHIP_SUNK
-              ? "🟥"
+              ? "💥"
               : cell === CFG.CELL_MISS
               ? "❌"
               : "⬛";
@@ -301,10 +317,10 @@ module.exports = class Game {
     });
     ships.all.forEach((ship) => {
       ship.cells.forEach((s) => {
-        map[s.y][s.x] = CFG.CELL_SHIP;
+        map[s.x][s.y] = CFG.CELL_SHIP;
       });
     });
-    return map;
+    return [map, ships];
   }
   generateEmptyMap() {
     let map = [];
