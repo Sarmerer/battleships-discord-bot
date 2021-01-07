@@ -5,6 +5,7 @@ const client = new Client();
 const Game = require("./game");
 const GamesManager = require("./games_manager");
 const { prefix, token } = require("./config.json");
+const presets = require("./presets.json");
 const { parseMessage } = require("./utils");
 
 let gamesManager = new GamesManager();
@@ -30,7 +31,7 @@ client.on("message", (message) => {
           if (m.deletable) m.delete({ timeout: 5000 });
         })
         .catch(console.log);
-    let game = new Game(message, args[0], gamesManager);
+    let game = new Game(message, args[0], gamesManager, presets.casual);
     if (game.error) return;
     game.start();
     if (gamesManager.push(...game.players()));

@@ -1,0 +1,29 @@
+{
+  "casual": {
+    "map_size": 10,
+    "win_socre": 20,
+    "ships": [
+      {
+        "size": 4,
+        "amount": 1
+      },
+      {
+        "size": 3,
+        "amount": 2
+      },
+      {
+        "size": 2,
+        "amount": 3
+      },
+      {
+        "size": 1,
+        "amount": 4
+      }
+    ]
+  },
+  "rapid": {
+    "map_size": 3,
+    "win_score": 1,
+    "ships": [{ "size": 1, "amount": 1 }]
+  }
+}
