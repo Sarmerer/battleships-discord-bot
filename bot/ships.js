@@ -19,7 +19,9 @@ module.exports = class Ships {
   }
 
   sunk(x, y) {
-    let cellIndex = this.findByCoords(x, y);
+    let cellIndex = this._ships.findIndex((ship) =>
+      ship.cells.some((s) => s.x === x && s.y === y)
+    );
     if (cellIndex === -1) return [];
     this._ships[cellIndex]._cells.find(
       (c) => c.x === x && c.y === y
@@ -29,28 +31,13 @@ module.exports = class Ships {
     return [];
   }
 
-  findByCoords(x, y) {
-    for (let i = 0; i < this._ships.length; i++) {
-      let ship = this._ships[i];
-      if (ship.cells.some((s) => s.x === x && s.y === y)) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
   /**
    * @param {Number} x
    * @param {Number} y
    */
   collides(x, y) {
-    return (
-      this._ships.some((ship) =>
-        ship.cells.some((s) => s.x === x && s.y === y)
-      ) ||
-      this._ships.some((ship) =>
-        ship.borders.some((s) => s.x === x && s.y === y)
-      )
+    return this._ships.some((ship) =>
+      ship.cells.some((s) => s.x === x && s.y === y)
     );
   }
   get all() {
@@ -63,7 +50,6 @@ class Ship {
     this._size = size;
     this._type = getType(size);
     this._cells = cells;
-    this._borders = borders;
     this._sunk = false;
   }
   sunk() {}

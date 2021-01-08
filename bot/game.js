@@ -239,7 +239,25 @@ module.exports = class Game {
   }
 
   mapToString(map) {
-    const nums = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
+    const numsEmojis = [
+      "0️⃣",
+      "1️⃣",
+      "2️⃣",
+      "3️⃣",
+      "4️⃣",
+      "5️⃣",
+      "6️⃣",
+      "7️⃣",
+      "8️⃣",
+      "9️⃣",
+    ];
+    const cellEmojis = {
+      [CFG.CELL_SHIP]: "🔳",
+      [CFG.CELL_SHIP_HIT]: "🆘",
+      [CFG.CELL_SHIP_SUNK]: "🔥",
+      [CFG.CELL_MISS]: "❌",
+      [CFG.CELL_EMPTY]: "⬛",
+    };
     let base = [];
     for (let i = 0; i <= CFG.MAP_SIZE; i++) {
       let tmp = [];
@@ -255,20 +273,11 @@ module.exports = class Game {
       for (let j = 0; j <= CFG.MAP_SIZE; j++) {
         let cell = base[i][j];
         if (j === 0 && i > 0) {
-          res += nums[cell];
+          res += numsEmojis[cell];
         } else if (i === 0 && j > 0) {
           res += ":regional_indicator_" + String.fromCharCode(96 + j) + ":";
         } else {
-          res +=
-            cell === CFG.CELL_SHIP
-              ? "🔳"
-              : cell === CFG.CELL_SHIP_HIT
-              ? "🔥"
-              : cell === CFG.CELL_SHIP_SUNK
-              ? "💥"
-              : cell === CFG.CELL_MISS
-              ? "❌"
-              : "⬛";
+          res += cellEmojis[cell];
         }
       }
       res += "\n";
@@ -281,6 +290,7 @@ module.exports = class Game {
     let preset = this._preset;
     let map = this.generateEmptyMap();
     let ships = new Ships();
+    let borders = [];
     preset.ships.forEach((ship) => {
       if (!ship.size) return;
       for (let i = 0; i < ship.amount; i++) {
@@ -295,7 +305,11 @@ module.exports = class Game {
           if (d === 1 && y + ship.size > CFG.MAP_SIZE - 1) y = y - ship.size;
           for (let j = 0; j < ship.size; j++) {
             let pt = d === 0 ? [x + j, y] : [x, y + j];
-            if (ships.collides(pt[0], pt[1])) break;
+            if (
+              ships.collides(pt[0], pt[1]) ||
+              borders.some((s) => s.x === pt[0] && s.y === pt[1])
+            )
+              break;
             tempSegments.push({ x: pt[0], y: pt[1], sunk: false });
             tempBorders.push(
               { x: pt[0] - 1, y: pt[1] },
@@ -309,12 +323,14 @@ module.exports = class Game {
             );
           }
           if (tempSegments.length === ship.size) {
-            ships.newShip(ship.size, tempSegments, tempBorders);
+            ships.newShip(ship.size, tempSegments);
+            borders.push(...tempBorders);
             shipSet = true;
           }
         }
       }
     });
+    console.log(ships.all.map((s) => s.borders));
     ships.all.forEach((ship) => {
       ship.cells.forEach((s) => {
         map[s.x][s.y] = CFG.CELL_SHIP;
@@ -326,8 +342,8 @@ module.exports = class Game {
     let map = [];
     for (let i = 0; i < CFG.MAP_SIZE; i++) {
       let tmp = [];
-      for (let j; j < CFG.MAP_SIZE; j++) {
-        tmp.push(0);
+      for (let j = 0; j < CFG.MAP_SIZE; j++) {
+        tmp.push(CFG.CELL_EMPTY);
       }
       map.push(tmp);
     }
