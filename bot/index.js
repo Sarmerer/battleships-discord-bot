@@ -24,6 +24,7 @@ client.on("message", (message) => {
   let { args, command } = parseMessage(message);
   if (command === "fight") {
     if (message.deletable) message.delete();
+
     if (gamesManager.inGame(message.author.id))
       return message
         .reply(`you are already in a fight, finish it first`)
@@ -31,7 +32,9 @@ client.on("message", (message) => {
           if (m.deletable) m.delete({ timeout: 5000 });
         })
         .catch(console.log);
-    let game = new Game(message, args[0], gamesManager, presets.casual);
+
+    let preset = presets[args[1]?.toLowerCase()] || presets.casual;
+    let game = new Game(message, args[0], gamesManager, preset);
     if (game.error) return;
     game.start();
     if (gamesManager.push(...game.players()));

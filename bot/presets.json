@@ -22,7 +22,7 @@
     ]
   },
   "rapid": {
-    "map_size": 3,
+    "map_size": 4,
     "win_score": 1,
     "ships": [{ "size": 1, "amount": 1 }]
   }
