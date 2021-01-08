@@ -330,24 +330,18 @@ module.exports = class Game {
         }
       }
     });
-    console.log(ships.all.map((s) => s.borders));
-    ships.all.forEach((ship) => {
-      ship.cells.forEach((s) => {
+    ships.all
+      .flatMap((s) => s.cells)
+      .forEach((s) => {
         map[s.x][s.y] = CFG.CELL_SHIP;
       });
-    });
+
     return [map, ships];
   }
   generateEmptyMap() {
-    let map = [];
-    for (let i = 0; i < CFG.MAP_SIZE; i++) {
-      let tmp = [];
-      for (let j = 0; j < CFG.MAP_SIZE; j++) {
-        tmp.push(CFG.CELL_EMPTY);
-      }
-      map.push(tmp);
-    }
-    return map;
+    return [...Array(CFG.MAP_SIZE)].map(() =>
+      Array(CFG.MAP_SIZE).fill(CFG.CELL_EMPTY)
+    );
   }
 
   rand(min, max) {
