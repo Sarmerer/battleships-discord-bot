@@ -3,6 +3,7 @@ const { MessageEmbed } = require("discord.js");
 const { prefix, bot_id: botID } = require("./config.json");
 const Player = require("./player");
 const Ships = require("./ships");
+const { gameHelp } = require("./help");
 
 const CFG = {};
 
@@ -84,7 +85,7 @@ module.exports = class Game {
     let rivalMapWithFog = (this._p1.turn ? this._p2 : this._p1).mapWithFog;
     let ships = this._p1.turn ? this._p2.ships : this._p1.ships;
 
-    let input = message.content.toLowerCase().replace(/\s+/g, "").split("");
+    let input = message.toLowerCase().replace(/\s+/g, "").split("");
     let target = {
       x: input[1].charCodeAt() - 48,
       y: input[0].charCodeAt() - 97,
@@ -155,7 +156,7 @@ module.exports = class Game {
     options.end
       ? embed.addField(
           `${this.winner} is a winner!`,
-          "This channel will be deleted in a minute"
+          "This channel will be deleted soon"
         )
       : embed.setFooter(`${(this._p1.turn ? this._p1 : this._p2).name}'s turn`);
     return embed;
@@ -193,42 +194,43 @@ module.exports = class Game {
               (m) => m.author.id === player.id
             );
             player.collector.on("collect", (m) => {
-              if (m.content === "sp") {
+              if (m.content.toLowerCase() === "ff") {
                 this._p1.collector.stop();
                 this._p2.collector.stop();
                 return;
               }
+              if (m.content.toLowerCase() === "help") {
+                let helpChan =
+                  player.id === this._p1.id ? this._p1.chan : this._p2.chan;
+                if (!helpChan) return;
+                helpChan.send(gameHelp);
+                if (m.deletable) m.delete();
+                return;
+              }
               if (m.content.startsWith("> ")) {
-                let opponentChan = (player.id === this._p1.id
-                  ? this._p2
-                  : this._p1
-                ).chan;
-                if (!opponentChan) return;
-                opponentChan
-                  .send(`${m.author.username} says: ${m.content.substr(2)}`)
-                  .then((dm) => {
-                    setTimeout(() => {
-                      if (dm.deletable) dm.delete();
-                    }, 10000);
-                  });
+                this.messageOpponent(
+                  player.id,
+                  m.author.username,
+                  m.content.substr(2)
+                );
                 if (m.deletable) m.delete();
                 return;
               }
               if (!player.turn) return;
-              let outcome = this.shoot(m);
-              if (outcome && outcome.error)
+              let outcome = this.shoot(m.content);
+              if (outcome?.error)
                 m.reply(outcome.error).then((r) => {
-                  if (r.deletable) r.delete({ timeout: 10000 });
+                  if (r.deletable) r.delete({ timeout: 5000 });
                 });
               if (m.deletable) m.delete();
             });
             player.collector.on("end", (_collected) => {
-              if (this.winner)
-                setTimeout(() => {
-                  if (chan.deletable) chan.delete();
-                }, 60000);
-              else if (chan.deletable) chan.delete();
-              this._gamesManager.splice(player.id);
+              let timeout = 0;
+              if (this.winner) timeout = 8000;
+              setTimeout(() => {
+                if (chan.deletable) chan.delete();
+                this._gamesManager.splice(player.id);
+              }, timeout);
             });
           })
           .catch(console.log);
@@ -236,6 +238,16 @@ module.exports = class Game {
       .catch((error) => {
         return { error: error };
       });
+  }
+
+  messageOpponent(playerID, author, msg) {
+    let opponentChan = playerID === this._p1.id ? this._p2.chan : this._p1.chan;
+    if (!opponentChan) return;
+    opponentChan.send(`${author} says: ${msg}`).then((m) => {
+      setTimeout(() => {
+        if (m.deletable) m.delete();
+      }, 5000);
+    });
   }
 
   mapToString(map) {
