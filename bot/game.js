@@ -22,9 +22,10 @@ module.exports = class Game {
    */
   constructor(message, mention, gamesManager, preset) {
     let rival = getUserFromMention(message, mention);
-    if (!rival || rival.bot) {
+    console.log(rival);
+    if (rival?.user?.bot || message?.author?.bot) {
       message
-        .reply(`Usage: ${prefix}play @someone`)
+        .reply(`Usage: ${prefix}fight @user ?mode`)
         .then((m) => {
           if (m.deletable) m.delete({ timeout: 5000 });
         })
@@ -34,6 +35,15 @@ module.exports = class Game {
     let author = message.author;
     rival = rival.user;
 
+    if (author.id === rival.id) {
+      message
+        .reply(`You can't fight yourself`)
+        .then((m) => {
+          if (m.deletable) m.delete({ timeout: 5000 });
+        })
+        .catch(console.log);
+      return { error: "tried to fight himself" };
+    }
     this._p1 = new Player(author.id, author.username, author.discriminator);
     this._p2 = new Player(rival.id, rival.username, rival.discriminator);
     this._gamesManager = gamesManager;
