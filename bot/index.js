@@ -14,7 +14,7 @@ const {
 const { initLogger, log } = require("./logger");
 const { parseMessage } = require("./utils");
 const presets = require("./presets.json");
-const { gameHelp } = require("./help");
+const { gameHelp, botHelp } = require("./help");
 
 const lowdb = require("lowdb");
 const FileSync = require("lowdb/adapters/FileSync");
@@ -58,11 +58,24 @@ client.on("message", (message) => {
   }
   if (command.toLowerCase() === "help") {
     if (message.deletable) message.delete();
-    message.channel.send(gameHelp);
+    message.channel.send(botHelp);
   }
 });
 
 client.on("guildCreate", (guild) => {
+  let parent = guild.channels.cache.find(
+    (c) => c.name.toLowerCase() === "battleships"
+  );
+  if (!parent)
+    guild.channels
+      .create("battleships", { type: "category" })
+      .then((p) =>
+        guild.channels
+          .create("lobby", { parent: p })
+          .then((c) => c.send(botHelp).catch(console.error))
+          .catch(console.error)
+      )
+      .catch(console.error);
   log(`joined [${guild.name}]`);
 });
 

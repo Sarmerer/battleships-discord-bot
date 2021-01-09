@@ -1,6 +1,6 @@
 const { prefix: p } = require("./config.json");
 
-const gameHelp = `\`\`\`md
+const gameHelpPlain = `
 Game rules:
 The rules are the same for all modes.
 First player is being selected by random.
@@ -29,16 +29,18 @@ A0 - ✔️
 j1 - ✔️
 
 1j - ❌
-¯\\_(ツ)_/¯ - ❌
-\`\`\``;
+z10 - ❌
+`;
+
+const gameHelp = `\`\`\`md${gameHelpPlain}\`\`\``;
 
 const botHelp = `\`\`\`md
 ? - optional argument
 Commands:
 ${p}fight @user ?mode - start a fight with a user
 #modes:
-- causal - 10x10 map with 4 1x1, 3 2x1, 2 3x1 and 1 4x1 ships
-- rapid - 4x4 map with 1 1x1 ship
+causal - 10x10 map with 4 1x1, 3 2x1, 2 3x1 and 1 4x1 ships
+rapid - 4x4 map with 1 1x1 ship
 #examples:
 ${p}fight @Sobuck - ✔️
 ${p}fight @Sobuck rapid - ✔️
@@ -47,7 +49,7 @@ ${p}fight @user ?mode - ❌
 
 ${p}help - show this message
 
-${gameHelp}
+${gameHelpPlain}
 
 Still need help? Ask your question on our official server: https://discord.gg/JB94rhqmVA
 \`\`\``;
