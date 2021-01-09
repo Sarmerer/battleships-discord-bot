@@ -4,10 +4,24 @@ const client = new Client();
 
 const Game = require("./game");
 const GamesManager = require("./games_manager");
-const { prefix, token } = require("./config.json");
+const {
+  prefix,
+  token,
+  home_server,
+  home_server_matches_stat,
+  home_server_servers_stat,
+} = require("./config.json");
 const { initLogger, log } = require("./logger");
 const { parseMessage } = require("./utils");
 const presets = require("./presets.json");
+const { gameHelp } = require("./help");
+
+const lowdb = require("lowdb");
+const FileSync = require("lowdb/adapters/FileSync");
+const adapter = new FileSync("./bot/stats.json");
+
+db = lowdb(adapter);
+db.defaults({ matches_played: 0 }).write();
 
 let gamesManager = new GamesManager();
 
@@ -24,7 +38,7 @@ client.on("error", (error) => log(error, { error: true }));
 client.on("message", (message) => {
   if (message.author.bot || !message.guild) return;
   let { args, command } = parseMessage(message);
-  if (command === "fight") {
+  if (command.toLowerCase() === "fight") {
     if (message.deletable) message.delete();
 
     if (gamesManager.inGame(message.author.id))
@@ -39,7 +53,12 @@ client.on("message", (message) => {
     let game = new Game(message, args[0], gamesManager, preset);
     if (game.error) return;
     game.start();
-    if (gamesManager.push(...game.players()));
+    gamesManager.push(...game.players());
+    db.update("matches_played", (n) => n + 1).write();
+  }
+  if (command.toLowerCase() === "help") {
+    if (message.deletable) message.delete();
+    message.channel.send(gameHelp);
   }
 });
 
@@ -58,6 +77,12 @@ setInterval(() => {
   if (serversChannel) {
     serversChannel
       .edit({ name: `Servers: ${client.guilds.cache.size}` })
+      .catch((error) => log(error, { error: true }));
+  }
+  let matchesChannel = guild.channels.cache.get(home_server_matches_stat);
+  if (matchesChannel) {
+    matchesChannel
+      .edit({ name: `Fights: ${db.get("matches_played").value() || NaN}` })
       .catch((error) => log(error, { error: true }));
   }
 }, 60 * 60 * 1000);
